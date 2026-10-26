@@ -1,11 +1,11 @@
 {
-  "display_name": "Gemini 语音附件",
+  "display_name": "语音插件",
   "loading_order": 100,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "css": "style.css",
   "author": "Custom",
-  "version": "1.2.0",
-  "description": "文字+真实原声音频一次性发送给Gemini，直接复用酒馆已配置API与模型，无需奇怪预解析"
+  "version": "2.0.0",
+  "description": "语音插件 - 原生附件流"
 }

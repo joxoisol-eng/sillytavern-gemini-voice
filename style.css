@@ -1,5 +1,5 @@
 /* ============================================================
-   SillyTavern Gemini 语音附件扩展样式表 (移动端与桌面极简版)
+   SillyTavern 语音插件样式表 (极简低调版)
    ============================================================ */
 
 /* 挂载在输入框正上方的语音胶囊 - 紧凑型独立药丸设计 */
@@ -94,7 +94,7 @@
   white-space: nowrap;
 }
 
-/* 手机触控优化的超大删除按钮，绝不脱离屏幕 */
+/* 手机触控优化的超大删除按钮 */
 .chip-del-btn {
   width: 28px;
   height: 28px;
@@ -210,14 +210,14 @@
   color: #818cf8 !important;
 }
 
-/* 聊天历史消息里的 QQ 风格语音卡片 */
+/* 聊天历史消息里的语音卡片 */
 .st-gemini-voice-bubble {
   background: rgba(99, 102, 241, 0.08);
   border: 1px solid rgba(99, 102, 241, 0.25);
   border-radius: 14px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   margin: 6px 0;
-  max-width: 300px;
+  max-width: 290px;
   box-sizing: border-box;
 }
 
@@ -225,7 +225,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .st-voice-audio {
@@ -238,107 +238,6 @@
 .st-voice-user-text {
   font-size: 14px;
   font-weight: 500;
-  margin-bottom: 6px;
   color: var(--SmartThemeTextColor, inherit);
   word-break: break-word;
-}
-
-.st-voice-transcript {
-  font-size: 13px;
-  color: var(--SmartThemeQuoteColor, #94a3b8);
-  font-style: italic;
-  margin-bottom: 6px;
-  line-height: 1.4;
-  border-left: 2px solid #818cf8;
-  padding-left: 8px;
-}
-
-.st-voice-tone-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  background: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
-  padding: 2px 8px;
-  border-radius: 6px;
-}
-
-/* 设置弹窗 */
-.gemini-voice-modal-backdrop {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  z-index: 99999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gemini-voice-modal {
-  width: 90%;
-  max-width: 360px;
-  background: var(--SmartThemeBodyColor, #1e1e24);
-  border: 1px solid var(--SmartThemeBorderColor, #3f3f46);
-  border-radius: 16px;
-  padding: 18px;
-  color: var(--SmartThemeTextColor, #f4f4f5);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
-}
-
-.gemini-voice-modal h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #818cf8;
-}
-
-.gemini-voice-modal .field-row {
-  margin-bottom: 12px;
-}
-
-.gemini-voice-modal label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 4px;
-  color: #94a3b8;
-}
-
-.gemini-voice-modal input, .gemini-voice-modal select {
-  width: 100%;
-  padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid #3f3f46;
-  border-radius: 8px;
-  color: inherit;
-  font-size: 13px;
-  box-sizing: border-box;
-}
-
-.gemini-voice-modal .modal-btns {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.gemini-voice-modal button {
-  flex: 1;
-  padding: 8px;
-  border-radius: 8px;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-primary-gv {
-  background: #4f46e5;
-  color: #ffffff;
-}
-
-.btn-cancel-gv {
-  background: #3f3f46;
-  color: #e4e4e7;
 }
