@@ -1,28 +1,26 @@
 /**
- * SillyTavern Gemini 语音附件扩展 (SillyTavern 1.12.14 原生多模态增强版)
+ * SillyTavern Gemini 语音附件扩展 (v1.2.0 - 真正直接与文字同时发送)
  *
- * 核心设计升级：
- * 1. 100% 走酒馆原生通道：直接复用你在酒馆里配置好的 API、模型与密钥，绝不在插件里重复配置！
- * 2. 像图片一样随文字一起发：录完音挂载在输入框，打字后点发送，文字与音频在同一个请求里一次性发给 Gemini！
- * 3. 拒绝奇怪的两步预解析：AI 在同一轮对话中直接“听见语音 + 看见文字”，体验与微信/QQ多模态完全一致！
- * 4. 原地试听与一键丢弃：挂载时自带 ▶ 试听播放条，点 ✕ 秒删丢弃不发送。
+ * 核心设计：
+ * 1. 自动读取酒馆已配置的 API URL、Key 与模型：完全不需要在插件里填 Key，绝不上载 GitHub！
+ * 2. 像图片一样随文字一次性发送：文字 + 原声音频打包进同一个请求，拒绝奇怪的两步预解析！
+ * 3. 角色直接沉浸回复：AI 同时听取你的原声音调与输入的文字，直接扮演角色给出自然回复。
+ * 4. 聊天记录生成可重听的语音条：随时回放刚才的真实录音。
  */
 
 let mediaRecorder = null;
 let audioChunks = [];
-let recordedBlob = null;
-let recordedUrl = null;
-let recordedDuration = 0;
+let attachedBlob = null;
+let attachedBase64 = null;
+let attachedUrl = null;
+let attachedDuration = 0;
 let previewAudio = new Audio();
 let isRecording = false;
 let recordTimer = null;
 let recordSeconds = 0;
 
 jQuery(async () => {
-  console.log('[GeminiVoice] SillyTavern 原生语音附件扩展正在初始化...');
-
-  // 确保酒馆开启多模态媒体内联 (media_inlining)
-  enableNativeMediaInlining();
+  console.log('[GeminiVoice] 正在启动 SillyTavern 语音直接发送扩展 v1.2.0...');
 
   // 轮询等待输入栏就绪
   let attempts = 0;
@@ -44,22 +42,23 @@ jQuery(async () => {
   }, 200);
 });
 
-// 自动确保酒馆设置开启了多模态附件支持
-function enableNativeMediaInlining() {
-  try {
-    if (window.oai_settings) {
-      window.oai_settings.media_inlining = true;
-    }
-  } catch (e) {}
+// 自动从酒馆当前配置读取 API 连接 (免去二次输入 Key)
+function getActiveSillyTavernApi() {
+  const oai = window.oai_settings || {};
+  let apiUrl = oai.custom_url || oai.reverse_proxy || '';
+  if (!apiUrl) apiUrl = 'http://127.0.0.1:8317/v1';
+
+  let apiKey = oai.proxy_password || '';
+  let model = oai.custom_model || oai.openai_model || 'gemini-3.8-flash-high';
+
+  return { apiUrl, apiKey, model };
 }
 
 function initVoiceUI($sendBtn, $textarea) {
-  // 清理可能存在的历史元素
+  // 清理可能存在的旧元素
   $('#gemini_voice_mic_btn').remove();
   $('#gemini_voice_recording_banner').remove();
   $('#gemini_voice_chip').remove();
-
-  console.log('[GeminiVoice] 正在注入麦克风及原生挂载控件...');
 
   // 注入麦克风大按钮 (触控优化)
   const $micBtn = $(`
@@ -77,7 +76,7 @@ function initVoiceUI($sendBtn, $textarea) {
     $textarea.after($micBtn);
   }
 
-  // 录音中的轻量状态条 (放在输入区域外部正上方)
+  // 录音中的轻量状态条
   const $recordBanner = $(`
     <div id="gemini_voice_recording_banner" class="gemini-voice-recording-banner"
          style="display:none; max-width:min(280px, calc(100vw - 40px)); margin:4px 8px; box-sizing:border-box;">
@@ -92,7 +91,7 @@ function initVoiceUI($sendBtn, $textarea) {
     </div>
   `);
 
-  // 语音挂载小药丸胶囊 (带试听与删除)
+  // 语音挂载小胶囊 (坐在输入框正上方，不遮挡打字框，带大 ✕ 删除按钮)
   const $attachmentChip = $(`
     <div id="gemini_voice_chip" class="gemini-voice-chip"
          style="display:none; width:fit-content; max-width:min(260px, calc(100vw - 40px)); margin:4px 8px; padding:4px 8px 4px 10px; border-radius:18px; box-sizing:border-box; z-index:10; align-items:center; justify-content:space-between; gap:6px;">
@@ -109,7 +108,7 @@ function initVoiceUI($sendBtn, $textarea) {
     </div>
   `);
 
-  // 插入在输入组件之上，绝不遮挡输入框
+  // 注入到输入框上方
   const $nonQR = $('#nonQRFormItems');
   if ($nonQR.length) {
     $nonQR.before($recordBanner);
@@ -122,13 +121,13 @@ function initVoiceUI($sendBtn, $textarea) {
     $textarea.before($attachmentChip);
   }
 
-  // ==================== 事件绑定 ====================
+  // ==================== 录音控制绑定 ====================
 
   $micBtn.on('click', async (e) => {
     e.preventDefault();
     if (!isRecording) {
-      if (recordedBlob) {
-        if (typeof toastr !== 'undefined') toastr.info('已有语音附件，请直接发送或点 ✕ 删除再录');
+      if (attachedBlob) {
+        if (typeof toastr !== 'undefined') toastr.info('已有语音附件，可直接发送或点 ✕ 删除再录');
         return;
       }
       await startVoiceRecording();
@@ -142,7 +141,7 @@ function initVoiceUI($sendBtn, $textarea) {
 
   $('#gemini_voice_chip_play_area').on('click', togglePreviewAudio);
 
-  // 点击 ✕ 立即删除不发送
+  // 点击 ✕ 一键删除不发送
   $('#gemini_voice_chip_del').on('click', (e) => {
     e.stopPropagation();
     discardVoiceAttachment();
@@ -153,31 +152,16 @@ function initVoiceUI($sendBtn, $textarea) {
     $('#gemini_voice_chip_waves').removeClass('playing');
   };
 
-  // 监听酒馆原生发送事件：发送后自动清理挂载状态
-  const nativeSendHandler = () => {
-    if (recordedBlob) {
-      setTimeout(() => {
-        discardVoiceAttachment(false); // 发送后清理，不弹提示
-      }, 300);
-    }
-  };
+  // 拦截发送：当有语音挂载时，与文字一起发送多模态请求
+  hookUnifiedSend($sendBtn, $textarea);
 
-  if ($sendBtn.length) {
-    $sendBtn.on('click', nativeSendHandler);
-  }
-  $textarea.on('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      nativeSendHandler();
-    }
-  });
-
-  console.log('[GeminiVoice] 原生语音挂载扩展 v1.1.0 就绪！');
+  console.log('[GeminiVoice] 扩展 v1.2.0 初始化完成！');
   if (typeof toastr !== 'undefined') {
-    toastr.success('🎙️ Gemini 原生语音附件已就绪！直接复用酒馆当前 API 与模型');
+    toastr.success('🎙️ 语音直接发送扩展 v1.2.0 已就绪！(文字+语音同时发送)');
   }
 }
 
-// ==================== 录音引擎 ====================
+// ==================== 录音逻辑 ====================
 
 async function startVoiceRecording() {
   audioChunks = [];
@@ -236,7 +220,7 @@ function stopVoiceRecording(save = true) {
   if (save && audioChunks.length > 0) {
     const mime = mediaRecorder?.mimeType || 'audio/webm';
     const blob = new Blob(audioChunks, { type: mime });
-    attachVoiceAsNativeFile(blob, Math.max(1, recordSeconds));
+    attachVoiceAttachment(blob, Math.max(1, recordSeconds));
   }
 }
 
@@ -246,78 +230,48 @@ function updateTimerDisplay() {
   $('#gemini_voice_timer').text(`正在录音 ${m}:${s}`);
 }
 
-// ==================== 核心：将录音挂载到酒馆原生文件队列 ====================
+// 挂载到输入框上方
+function attachVoiceAttachment(blob, seconds) {
+  attachedBlob = blob;
+  attachedDuration = seconds;
+  if (attachedUrl) URL.revokeObjectURL(attachedUrl);
+  attachedUrl = URL.createObjectURL(blob);
+  previewAudio.src = attachedUrl;
 
-function attachVoiceAsNativeFile(blob, seconds) {
-  recordedBlob = blob;
-  recordedDuration = seconds;
-  if (recordedUrl) URL.revokeObjectURL(recordedUrl);
-  recordedUrl = URL.createObjectURL(blob);
-  previewAudio.src = recordedUrl;
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    attachedBase64 = reader.result.split(',')[1];
+  };
+  reader.readAsDataURL(blob);
 
-  // 1. 将音频 Blob 封装成原生 File 对象
-  const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
-  const audioFile = new File([blob], `voice_${seconds}s.${ext}`, { type: blob.type });
-
-  // 2. 注入到酒馆原生 #file_form_input 队列中
-  const fileInput = document.getElementById('file_form_input');
-  if (fileInput) {
-    try {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(audioFile);
-      fileInput.files = dataTransfer.files;
-      // 触发酒馆的附件识别逻辑
-      $(fileInput).trigger('change');
-      // 隐藏酒馆自带生硬的纯文本文件名条，用我们精致的播放胶囊呈现
-      $('#file_form').addClass('displayNone');
-    } catch (e) {
-      console.warn('[GeminiVoice] DataTransfer 写入受限:', e);
-    }
-  }
-
-  // 3. 展示试听与删除小胶囊
   $('#gemini_voice_chip_dur').text(`${seconds}"`);
   $('#gemini_voice_chip').css('display', 'inline-flex').slideDown(180);
   $('#gemini_voice_mic_btn').addClass('attached');
 
-  enableNativeMediaInlining();
-
   if (typeof toastr !== 'undefined') {
-    toastr.success('🎙️ 语音已挂载！像图片一样随输入框文字一起发送');
+    toastr.success('🎙️ 语音已挂载！直接输入文字即可一起发送');
   }
 }
 
-// 移除/丢弃语音附件
-function discardVoiceAttachment(notify = true) {
+function discardVoiceAttachment() {
   if (previewAudio) {
     previewAudio.pause();
     previewAudio.src = '';
   }
-  if (recordedUrl) {
-    URL.revokeObjectURL(recordedUrl);
-    recordedUrl = null;
+  if (attachedUrl) {
+    URL.revokeObjectURL(attachedUrl);
+    attachedUrl = null;
   }
-  recordedBlob = null;
-  recordedDuration = 0;
-
-  // 清空酒馆原生附件队列
-  const fileInput = document.getElementById('file_form_input');
-  if (fileInput) {
-    fileInput.value = '';
-    $('#file_form').trigger('reset').addClass('displayNone');
-  }
+  attachedBlob = null;
+  attachedBase64 = null;
+  attachedDuration = 0;
 
   $('#gemini_voice_chip_play').text('▶');
   $('#gemini_voice_chip_waves').removeClass('playing');
   $('#gemini_voice_chip').slideUp(150);
   $('#gemini_voice_mic_btn').removeClass('attached');
-
-  if (notify && typeof toastr !== 'undefined') {
-    toastr.info('已丢弃语音附件');
-  }
 }
 
-// 试听播放 / 暂停
 function togglePreviewAudio() {
   if (!previewAudio.src) return;
   if (previewAudio.paused) {
@@ -329,4 +283,186 @@ function togglePreviewAudio() {
     $('#gemini_voice_chip_play').text('▶');
     $('#gemini_voice_chip_waves').removeClass('playing');
   }
+}
+
+// ==================== 核心：多模态合体发送 ====================
+
+function hookUnifiedSend($sendBtn, $textarea) {
+  const handleSend = async (e) => {
+    if (attachedBase64) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      await executeMultimodalSend($textarea);
+    }
+  };
+
+  if ($sendBtn.length) {
+    $sendBtn.on('click', handleSend);
+  }
+  $textarea.on('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && attachedBase64) {
+      await handleSend(e);
+    }
+  });
+}
+
+async function executeMultimodalSend($textarea) {
+  const userText = $textarea.val().trim();
+  const audioBase64 = attachedBase64;
+  const audioBlob = attachedBlob;
+  const audioUrl = attachedUrl;
+  const duration = attachedDuration;
+
+  // 清空输入框和挂载条
+  $textarea.val('').trigger('input');
+  discardVoiceAttachment();
+
+  if (typeof toastr !== 'undefined') {
+    toastr.info('正在发送文字与语音给角色...');
+  }
+
+  // 1. 立即把用户的语音与文字放入酒馆聊天界面
+  const context = window.SillyTavern?.getContext ? window.SillyTavern.getContext() : {};
+  const charName = context.name2 || '角色';
+  const userName = context.name1 || '你';
+
+  const userMessageHtml = `
+    <div class="st-gemini-voice-bubble">
+      <div class="st-voice-player-row">
+        <audio class="st-voice-audio" controls src="${audioUrl}"></audio>
+        <span style="font-size:12px; font-weight:600; color:#818cf8;">${duration}"</span>
+      </div>
+      ${userText ? `<div class="st-voice-user-text">💬 ${escapeHtml(userText)}</div>` : ''}
+    </div>
+  `;
+
+  // 插入用户消息到酒馆聊天流
+  appendMessage(userName, true, userMessageHtml);
+
+  try {
+    // 2. 直接使用酒馆当前配置的 API 进行请求
+    const apiConfig = getActiveSillyTavernApi();
+    console.log('[GeminiVoice] 使用酒馆配置发送:', apiConfig.apiUrl, apiConfig.model);
+
+    // 组装历史上下文
+    const historyList = (context.chat || []).slice(-8).map(m => {
+      const sender = m.is_user ? userName : (m.name || charName);
+      return `${sender}: ${m.mes || ''}`;
+    }).join('\n');
+
+    // Prompt: 让角色自然回复，同时听取语音与阅读文字，不需要奇怪的中间解析！
+    const promptText = (historyList ? `【前序聊天背景】\n${historyList}\n\n` : '') +
+      (userText ? `用户发来的话: "${userText}"\n` : '') +
+      `【系统提示】：用户随本条消息附带了一段时长 ${duration} 秒的真实语音（可能包含哼歌、说话语气、情绪、停顿）。请仔细聆听这段音频的声音细节，并结合用户发来的文字，以角色身分进行自然、沉浸的回复。`;
+
+    const charReply = await sendDirectToGemini(apiConfig, audioBase64, audioBlob.type || 'audio/webm', promptText);
+
+    // 3. 插入角色回复到聊天流
+    appendMessage(charName, false, charReply);
+
+  } catch (err) {
+    console.error('[GeminiVoice] 发送多模态请求失败:', err);
+    if (typeof toastr !== 'undefined') {
+      toastr.error('发送失败：' + (err.message || '网络连接错误'));
+    }
+  }
+}
+
+// 直接向酒馆配置的反代发起原生多模态请求 (真实发送音频数据)
+async function sendDirectToGemini(apiConfig, base64Data, mimeType, prompt) {
+  let baseUrl = apiConfig.apiUrl.replace(/\/+$/, '');
+  const apiKey = apiConfig.apiKey;
+  const model = apiConfig.model;
+
+  // 构造标准多模态请求体
+  let targetUrl = '';
+  let payload = null;
+
+  if (baseUrl.includes('/v1beta')) {
+    // Gemini 原生接口格式
+    targetUrl = `${baseUrl}/models/${model}:generateContent`;
+    if (apiKey) targetUrl += `?key=${apiKey}`;
+
+    payload = {
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType, data: base64Data } },
+          { text: prompt }
+        ]
+      }]
+    };
+  } else {
+    // OpenAI 格式反代接口 (兼容 input_audio)
+    targetUrl = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
+    payload = {
+      model,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: base64Data,
+              format: mimeType.includes('mp4') ? 'mp4' : 'wav'
+            }
+          },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    };
+  }
+
+  const res = await fetch(targetUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(apiKey ? { 'Authorization': `Bearer ${apiKey}`, 'x-goog-api-key': apiKey } : {})
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`API HTTP ${res.status}: ${errText}`);
+  }
+
+  const data = await res.json();
+
+  // 优先解析 Gemini 原生格式，再解析 OpenAI 格式
+  return data.candidates?.[0]?.content?.parts?.[0]?.text ||
+         data.choices?.[0]?.message?.content ||
+         '（角色未回复）';
+}
+
+function appendMessage(name, isUser, contentHtml) {
+  const context = window.SillyTavern?.getContext ? window.SillyTavern.getContext() : {};
+  const msgObj = {
+    name: name,
+    is_user: isUser,
+    is_system: false,
+    send_date: Date.now(),
+    mes: contentHtml,
+    extra: {}
+  };
+
+  if (context.chat && Array.isArray(context.chat)) {
+    context.chat.push(msgObj);
+    if (typeof context.addOneMessage === 'function') {
+      context.addOneMessage(msgObj);
+    } else if (typeof window.addOneMessage === 'function') {
+      window.addOneMessage(msgObj);
+    }
+    if (typeof context.saveChat === 'function') {
+      context.saveChat();
+    }
+  }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

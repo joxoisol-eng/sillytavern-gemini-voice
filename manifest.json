@@ -6,6 +6,6 @@
   "js": "index.js",
   "css": "style.css",
   "author": "Custom",
-  "version": "1.1.0",
-  "description": "录制真实语音像图片附件一样挂载在输入框，直接走酒馆原生API发送给多模态模型，支持试听与一键删除"
+  "version": "1.2.0",
+  "description": "文字+真实原声音频一次性发送给Gemini，直接复用酒馆已配置API与模型，无需奇怪预解析"
 }
