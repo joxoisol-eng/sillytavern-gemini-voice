@@ -6,6 +6,6 @@
   "js": "index.js",
   "css": "style.css",
   "author": "Custom",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "语音插件 - 原生附件流"
 }
