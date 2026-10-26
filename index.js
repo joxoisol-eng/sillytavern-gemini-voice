@@ -72,9 +72,12 @@ jQuery(async () => {
 });
 
 function initVoiceUI($sendBtn, $textarea) {
-  if ($('#gemini_voice_mic_btn').length > 0) return; // 避免重复注入
+  // 清理任何历史残留元素，确保加载最新 UI
+  $('#gemini_voice_mic_btn').remove();
+  $('#gemini_voice_recording_banner').remove();
+  $('#gemini_voice_chip').remove();
 
-  console.log('[GeminiVoice] 正在向输入栏注入麦克风控件 (手机版优化)...');
+  console.log('[GeminiVoice] 正在向输入栏注入麦克风控件 (v1.0.2 紧凑手机版)...');
 
   // 注入麦克风按钮 (适配手机触控大按钮)
   const $micBtn = $(`
@@ -93,32 +96,35 @@ function initVoiceUI($sendBtn, $textarea) {
     $textarea.after($micBtn);
   }
 
-  // 注入录音中的条幅 (手机端自适应宽度)
+  // 注入录音中的条幅 (内联样式保障，防止浏览器缓存旧css)
   const $recordBanner = $(`
-    <div id="gemini_voice_recording_banner" class="gemini-voice-recording-banner" style="display:none;">
-      <div class="recording-indicator">
-        <span class="recording-dot"></span>
+    <div id="gemini_voice_recording_banner" class="gemini-voice-recording-banner"
+         style="display:none; max-width:min(280px, calc(100vw - 40px)); margin:4px 8px; box-sizing:border-box;">
+      <div class="recording-indicator" style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:12px;">
+        <span class="recording-dot" style="width:8px; height:8px; border-radius:4px; background:#ef4444;"></span>
         <span id="gemini_voice_timer">00:00</span>
       </div>
-      <div class="recording-actions">
-        <button id="gemini_voice_btn_stop" class="btn-record-stop" type="button">✓ 完成</button>
-        <button id="gemini_voice_btn_cancel" class="btn-record-cancel" type="button">✕ 取消</button>
+      <div class="recording-actions" style="display:flex; gap:6px;">
+        <button id="gemini_voice_btn_stop" class="btn-record-stop" type="button" style="padding:3px 8px; background:#ef4444; color:#fff; border:none; border-radius:6px; font-size:11px;">✓ 完成</button>
+        <button id="gemini_voice_btn_cancel" class="btn-record-cancel" type="button" style="padding:3px 6px; background:transparent; color:#94a3b8; border:1px solid #475569; border-radius:6px; font-size:11px;">✕</button>
       </div>
     </div>
   `);
 
-  // 注入挂载预览胶囊 (紧凑小药丸设计，放在输入栏正上方)
+  // 注入挂载预览胶囊 (内联样式保障：紧凑型小药丸，绝不超长挡框)
   const $attachmentChip = $(`
-    <div id="gemini_voice_chip" class="gemini-voice-chip" style="display:none;">
-      <div class="gemini-voice-chip-left" id="gemini_voice_chip_play_area" title="点击试听或暂停">
-        <button id="gemini_voice_chip_play" class="chip-play-btn" type="button">▶</button>
+    <div id="gemini_voice_chip" class="gemini-voice-chip"
+         style="display:none; width:fit-content; max-width:min(260px, calc(100vw - 40px)); margin:4px 8px; padding:4px 8px 4px 10px; border-radius:18px; box-sizing:border-box; z-index:10; align-items:center; justify-content:space-between; gap:6px;">
+      <div class="gemini-voice-chip-left" id="gemini_voice_chip_play_area" title="点击试听或暂停" style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+        <button id="gemini_voice_chip_play" class="chip-play-btn" type="button" style="width:26px; height:26px; border-radius:13px; font-size:10px; flex-shrink:0;">▶</button>
         <div class="chip-waves" id="gemini_voice_chip_waves">
           <span></span><span></span><span></span><span></span>
         </div>
-        <span id="gemini_voice_chip_dur" class="chip-duration">0"</span>
-        <span class="chip-label">🎙️ 已挂载</span>
+        <span id="gemini_voice_chip_dur" class="chip-duration" style="font-size:13px; font-weight:700; color:#a5b4fc;">0"</span>
+        <span class="chip-label" style="font-size:12px; font-weight:500;">🎙️ 已挂载</span>
       </div>
-      <button id="gemini_voice_chip_del" class="chip-del-btn" type="button" title="点击删除语音">✕</button>
+      <button id="gemini_voice_chip_del" class="chip-del-btn" type="button" title="点击删除语音"
+              style="width:28px; height:28px; border-radius:14px; font-size:15px; font-weight:bold; margin-left:6px; flex-shrink:0; cursor:pointer; touch-action:manipulation;">✕</button>
     </div>
   `);
 
@@ -185,9 +191,9 @@ function initVoiceUI($sendBtn, $textarea) {
   // 拦截酒馆发送动作
   hookSillyTavernSend($sendBtn, $textarea);
 
-  console.log('[GeminiVoice] 麦克风与语音挂载控件已就绪！当前模型:', config.model);
+  console.log('[GeminiVoice] 麦克风与语音挂载控件已就绪！当前版本: v1.0.2，模型:', config.model);
   if (typeof toastr !== 'undefined') {
-    toastr.success('🎙️ Gemini 语音附件扩展已启动！点击输入框旁的麦克风即可录音');
+    toastr.success('🎙️ Gemini 语音附件 v1.0.2 已就绪！(紧凑版)');
   }
 }
 
