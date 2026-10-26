@@ -1,0 +1,9 @@
+{
+  "display_name": "Gemini 语音附件",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "author": "Custom",
+  "version": "1.0.0",
+  "description": "录制真实语音像图片一样挂载在输入框，发送给 Gemini 多模态识别语气与内容，支持试听与一键删除"
+}
