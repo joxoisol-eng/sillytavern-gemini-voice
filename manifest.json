@@ -6,6 +6,6 @@
   "js": "index.js",
   "css": "style.css",
   "author": "Custom",
-  "version": "2.1.0",
-  "description": "语音插件 - 原生附件流"
+  "version": "2.2.0",
+  "description": "文字+真实原声音频直达Gemini多模态，适配SillyTavern 1.12.14"
 }
