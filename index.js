@@ -98,7 +98,7 @@ function initVoiceUI($sendBtn, $textarea) {
     <div id="gemini_voice_recording_banner" class="gemini-voice-recording-banner" style="display:none;">
       <div class="recording-indicator">
         <span class="recording-dot"></span>
-        <span id="gemini_voice_timer">正在录音 00:00</span>
+        <span id="gemini_voice_timer">00:00</span>
       </div>
       <div class="recording-actions">
         <button id="gemini_voice_btn_stop" class="btn-record-stop" type="button">✓ 完成</button>
@@ -107,7 +107,7 @@ function initVoiceUI($sendBtn, $textarea) {
     </div>
   `);
 
-  // 注入挂载预览胶囊 (像图片附件一样紧贴在输入框上方)
+  // 注入挂载预览胶囊 (紧凑小药丸设计，放在输入栏正上方)
   const $attachmentChip = $(`
     <div id="gemini_voice_chip" class="gemini-voice-chip" style="display:none;">
       <div class="gemini-voice-chip-left" id="gemini_voice_chip_play_area" title="点击试听或暂停">
@@ -116,15 +116,24 @@ function initVoiceUI($sendBtn, $textarea) {
           <span></span><span></span><span></span><span></span>
         </div>
         <span id="gemini_voice_chip_dur" class="chip-duration">0"</span>
-        <span class="chip-label">🎙️ 语音已挂载 (点✕丢弃，或直接点发送)</span>
+        <span class="chip-label">🎙️ 已挂载</span>
       </div>
-      <button id="gemini_voice_chip_del" class="chip-del-btn" type="button" title="点击删除此语音附件">✕</button>
+      <button id="gemini_voice_chip_del" class="chip-del-btn" type="button" title="点击删除语音">✕</button>
     </div>
   `);
 
-  // 挂在 send_textarea 上方
-  $textarea.before($recordBanner);
-  $textarea.before($attachmentChip);
+  // 关键：必须放在 #nonQRFormItems 外部的正上方（与酒馆自带文件预览同级），绝不能塞在 textarea 同一个 flex 容器内！
+  const $nonQR = $('#nonQRFormItems');
+  if ($nonQR.length) {
+    $nonQR.before($recordBanner);
+    $nonQR.before($attachmentChip);
+  } else if ($('#send_form').length) {
+    $('#send_form').prepend($recordBanner);
+    $('#send_form').prepend($attachmentChip);
+  } else {
+    $textarea.before($recordBanner);
+    $textarea.before($attachmentChip);
+  }
 
   // ==================== 事件绑定 ====================
 

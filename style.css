@@ -1,40 +1,43 @@
 /* ============================================================
-   SillyTavern Gemini 语音附件扩展样式表
+   SillyTavern Gemini 语音附件扩展样式表 (移动端与桌面极简版)
    ============================================================ */
 
-/* 输入框上方的语音挂载胶囊 (仿微信/QQ语音输入及ST原生附件设计) */
+/* 挂载在输入框正上方的语音胶囊 - 紧凑型独立药丸设计 */
 .gemini-voice-chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: space-between;
   background: var(--SmartThemeBodyColor, #2d3139);
   border: 1px solid var(--SmartThemeBorderColor, #4f46e5);
   border-left: 4px solid #6366f1;
-  border-radius: 12px;
-  padding: 6px 12px;
-  margin-bottom: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: slideDown 0.2s ease-out;
+  border-radius: 18px;
+  padding: 4px 8px 4px 10px;
+  margin: 4px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: slideDown 0.18s ease-out;
   user-select: none;
+  max-width: min(280px, calc(100vw - 40px));
+  box-sizing: border-box;
+  z-index: 10;
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
+  from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .gemini-voice-chip-left {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
+  gap: 7px;
+  cursor: pointer;
   overflow: hidden;
 }
 
 .chip-play-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 14px;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
   background: #4f46e5;
   color: #ffffff;
   border: none;
@@ -42,9 +45,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px;
   flex-shrink: 0;
-  transition: transform 0.15s, background-color 0.2s;
+  transition: transform 0.12s;
 }
 
 .chip-play-btn:active {
@@ -54,17 +57,17 @@
 .chip-waves {
   display: flex;
   align-items: center;
-  gap: 3px;
-  height: 16px;
+  gap: 2px;
+  height: 14px;
 }
 
 .chip-waves span {
   display: inline-block;
-  width: 3px;
-  height: 6px;
+  width: 2.5px;
+  height: 5px;
   background: #818cf8;
-  border-radius: 2px;
-  transition: height 0.2s;
+  border-radius: 1.5px;
+  transition: height 0.15s;
 }
 
 .chip-waves.playing span:nth-child(1) { animation: waveAnim 0.6s infinite alternate ease-in-out; }
@@ -73,79 +76,85 @@
 .chip-waves.playing span:nth-child(4) { animation: waveAnim 0.5s infinite alternate 0.1s ease-in-out; }
 
 @keyframes waveAnim {
-  0% { height: 4px; }
-  100% { height: 16px; }
+  0% { height: 3px; }
+  100% { height: 14px; }
 }
 
 .chip-duration {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--SmartThemeQuoteColor, #a5b4fc);
-  min-width: 24px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #a5b4fc;
+  min-width: 20px;
 }
 
 .chip-label {
   font-size: 12px;
+  font-weight: 500;
   color: var(--SmartThemeTextColor, #e2e8f0);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
+/* 手机触控优化的超大删除按钮，绝不脱离屏幕 */
 .chip-del-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 13px;
-  background: rgba(239, 68, 68, 0.15);
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  font-size: 13px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  font-size: 15px;
+  font-weight: bold;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-left: 8px;
   flex-shrink: 0;
+  touch-action: manipulation;
   transition: all 0.15s;
 }
 
-.chip-del-btn:hover {
+.chip-del-btn:active {
   background: #ef4444;
   color: #ffffff;
+  transform: scale(0.92);
 }
 
-/* 录音进行时的条幅 */
+/* 录音中的轻量条幅 */
 .gemini-voice-recording-banner {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(239, 68, 68, 0.15);
+  gap: 12px;
+  background: rgba(239, 68, 68, 0.16);
   border: 1px solid #ef4444;
-  border-radius: 12px;
-  padding: 8px 14px;
-  margin-bottom: 6px;
+  border-radius: 16px;
+  padding: 5px 12px;
+  margin: 4px 8px;
   color: #f87171;
+  max-width: min(300px, calc(100vw - 40px));
   animation: pulseBorder 1.5s infinite;
+  box-sizing: border-box;
 }
 
 @keyframes pulseBorder {
   0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  70% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
   100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 .recording-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .recording-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
   background: #ef4444;
   animation: blink 0.8s infinite alternate;
 }
@@ -157,31 +166,33 @@
 
 .recording-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .btn-record-stop {
-  padding: 4px 10px;
+  padding: 3px 8px;
   background: #ef4444;
   color: #fff;
   border: none;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .btn-record-cancel {
-  padding: 4px 8px;
+  padding: 3px 6px;
   background: transparent;
   color: #94a3b8;
   border: 1px solid #475569;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
-/* 输入框旁边的麦克风按钮高亮状态 */
+/* 输入框旁边的麦克风按钮 */
 #gemini_voice_mic_btn {
   transition: all 0.2s ease;
   user-select: none;
@@ -206,7 +217,7 @@
   border-radius: 14px;
   padding: 10px 14px;
   margin: 6px 0;
-  max-width: 320px;
+  max-width: 300px;
   box-sizing: border-box;
 }
 
@@ -219,7 +230,7 @@
 
 .st-voice-audio {
   height: 32px;
-  max-width: 210px;
+  max-width: 200px;
   border-radius: 16px;
   outline: none;
 }
@@ -266,7 +277,7 @@
 
 .gemini-voice-modal {
   width: 90%;
-  max-width: 380px;
+  max-width: 360px;
   background: var(--SmartThemeBodyColor, #1e1e24);
   border: 1px solid var(--SmartThemeBorderColor, #3f3f46);
   border-radius: 16px;
