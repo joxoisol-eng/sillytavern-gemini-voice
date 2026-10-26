@@ -1,5 +1,5 @@
 /**
- * SillyTavern Gemini 语音附件扩展 (SillyTavern 1.12.14 专属)
+ * SillyTavern Gemini 语音附件扩展 (SillyTavern 1.12.14 手机与桌面专属)
  * 特性：
  * 1. 真实麦克风录音，支持哼歌、耳语、叹气、撒娇等复杂声学特征
  * 2. 像图片一样挂载在输入框上方，随时点 ▶ 试听，点 ✕ 秒删丢弃
@@ -10,11 +10,11 @@
 // 兼容 ES 模块导入与全局 SillyTavern 上下文
 let getContext = window.SillyTavern?.getContext || (() => ({}));
 
-// 配置项
+// 默认配置 (已更新默认模型为 gemini-3.8-flash-high)
 const DEFAULT_CONFIG = {
   apiUrl: 'http://127.0.0.1:8317/v1',
   apiKey: '',
-  model: 'gemini-1.5-flash',
+  model: 'gemini-3.8-flash-high',
   format: 'gemini_native' // 'gemini_native' | 'openai_chat'
 };
 
@@ -45,35 +45,55 @@ let isRecording = false;
 let recordTimer = null;
 let recordSeconds = 0;
 
-// ==================== UI 注入与初始化 ====================
+// ==================== UI 注入与初始化 (适配手机端) ====================
 
 jQuery(async () => {
-  console.log('[GeminiVoice] SillyTavern 语音扩展开始加载...');
+  console.log('[GeminiVoice] SillyTavern 语音扩展正在启动...');
 
-  // 1. 等待酒馆主输入框就绪
+  // 轮询等待手机/桌面端输入框元素就绪
+  let attempts = 0;
   const checkInterval = setInterval(() => {
-    const $sendBtn = $('#send_but');
+    attempts++;
     const $textarea = $('#send_textarea');
+    const $sendBtn = $('#send_but');
 
-    if ($sendBtn.length && $textarea.length) {
+    if ($textarea.length) {
       clearInterval(checkInterval);
       initVoiceUI($sendBtn, $textarea);
+    } else if (attempts > 60) {
+      clearInterval(checkInterval);
+      console.warn('[GeminiVoice] 未找到输入框元素，将在延迟后重试...');
+      setTimeout(() => {
+        const $t = $('#send_textarea');
+        if ($t.length) initVoiceUI($('#send_but'), $t);
+      }, 2000);
     }
-  }, 200);
+  }, 250);
 });
 
 function initVoiceUI($sendBtn, $textarea) {
-  // 注入麦克风按钮 (放在发送按钮前)
+  if ($('#gemini_voice_mic_btn').length > 0) return; // 避免重复注入
+
+  console.log('[GeminiVoice] 正在向输入栏注入麦克风控件 (手机版优化)...');
+
+  // 注入麦克风按钮 (适配手机触控大按钮)
   const $micBtn = $(`
     <div id="gemini_voice_mic_btn" class="fa-solid fa-microphone interactable"
-         title="点击录制语音附件 (长按打开设置)"
-         style="cursor:pointer; font-size:1.25em; padding:6px 8px; display:inline-flex; align-items:center; justify-content:center; color:var(--SmartThemeTextColor, inherit);">
+         title="点击录制语音 (长按齿轮设置)"
+         style="cursor:pointer; font-size:1.35em; min-width:38px; min-height:38px; display:inline-flex; align-items:center; justify-content:center; color:var(--SmartThemeTextColor, inherit); touch-action:manipulation; margin:0 4px;">
     </div>
   `);
 
-  $sendBtn.before($micBtn);
+  // 手机端优先插入在发送键旁边或输入控制栏内
+  if ($sendBtn.length) {
+    $sendBtn.before($micBtn);
+  } else if ($('#chat_input_controls').length) {
+    $('#chat_input_controls').append($micBtn);
+  } else {
+    $textarea.after($micBtn);
+  }
 
-  // 注入录音中的条幅
+  // 注入录音中的条幅 (手机端自适应宽度)
   const $recordBanner = $(`
     <div id="gemini_voice_recording_banner" class="gemini-voice-recording-banner" style="display:none;">
       <div class="recording-indicator">
@@ -87,7 +107,7 @@ function initVoiceUI($sendBtn, $textarea) {
     </div>
   `);
 
-  // 注入挂载预览胶囊 (挂在输入框正上方，就像图片附件一样)
+  // 注入挂载预览胶囊 (像图片附件一样紧贴在输入框上方)
   const $attachmentChip = $(`
     <div id="gemini_voice_chip" class="gemini-voice-chip" style="display:none;">
       <div class="gemini-voice-chip-left" id="gemini_voice_chip_play_area" title="点击试听或暂停">
@@ -96,34 +116,36 @@ function initVoiceUI($sendBtn, $textarea) {
           <span></span><span></span><span></span><span></span>
         </div>
         <span id="gemini_voice_chip_dur" class="chip-duration">0"</span>
-        <span class="chip-label">🎙️ 语音已挂载 (可搭配文字一起发)</span>
+        <span class="chip-label">🎙️ 语音已挂载 (点✕丢弃，或直接点发送)</span>
       </div>
       <button id="gemini_voice_chip_del" class="chip-del-btn" type="button" title="点击删除此语音附件">✕</button>
     </div>
   `);
 
+  // 挂在 send_textarea 上方
   $textarea.before($recordBanner);
   $textarea.before($attachmentChip);
 
   // ==================== 事件绑定 ====================
 
-  // 麦克风点击触发
+  // 长按打开设置 (手机端支持)
   let pressTimer = null;
-  $micBtn.on('mousedown touchstart', () => {
+  $micBtn.on('touchstart mousedown', () => {
     pressTimer = setTimeout(() => {
       openConfigModal();
-    }, 700); // 长按 700ms 弹出设置
+    }, 600);
   });
 
-  $micBtn.on('mouseup touchend', () => {
+  $micBtn.on('touchend touchcancel mouseup mouseleave', () => {
     clearTimeout(pressTimer);
   });
 
+  // 单击录制
   $micBtn.on('click', async (e) => {
     e.preventDefault();
     if (!isRecording) {
       if (attachedAudioBlob) {
-        toastr.info('已有语音附件，请先发送或点 ✕ 删除再录新语音');
+        if (typeof toastr !== 'undefined') toastr.info('已有语音附件，请点 ✕ 删除再录新语音');
         return;
       }
       await startVoiceRecording();
@@ -139,7 +161,7 @@ function initVoiceUI($sendBtn, $textarea) {
   // 试听播放 / 暂停
   $('#gemini_voice_chip_play_area').on('click', togglePreviewAudio);
 
-  // 关键功能：点 ✕ 立即删除不发送
+  // 核心诉求：点 ✕ 立即删除不发送
   $('#gemini_voice_chip_del').on('click', (e) => {
     e.stopPropagation();
     discardVoiceAttachment();
@@ -151,10 +173,13 @@ function initVoiceUI($sendBtn, $textarea) {
     $('#gemini_voice_chip_waves').removeClass('playing');
   };
 
-  // 拦截酒馆的发送动作
+  // 拦截酒馆发送动作
   hookSillyTavernSend($sendBtn, $textarea);
 
-  console.log('[GeminiVoice] 语音挂载控件初始化完成！');
+  console.log('[GeminiVoice] 麦克风与语音挂载控件已就绪！当前模型:', config.model);
+  if (typeof toastr !== 'undefined') {
+    toastr.success('🎙️ Gemini 语音附件扩展已启动！点击输入框旁的麦克风即可录音');
+  }
 }
 
 // ==================== 录音引擎 (标准原生浏览器通道) ====================
@@ -196,7 +221,9 @@ async function startVoiceRecording() {
 
   } catch (err) {
     console.error('[GeminiVoice] 调起麦克风失败:', err);
-    toastr.error('调起麦克风失败：' + (err.message || err.name));
+    if (typeof toastr !== 'undefined') {
+      toastr.error('调起麦克风失败：' + (err.message || err.name));
+    }
   }
 }
 
@@ -224,7 +251,7 @@ function updateTimerDisplay() {
   $('#gemini_voice_timer').text(`正在录音 ${m}:${s}`);
 }
 
-// 挂载音频到输入框上方
+// 挂载音频到输入框上方 (仿图片附件)
 function attachVoiceBlob(blob, seconds) {
   attachedAudioBlob = blob;
   attachedAudioDuration = seconds;
@@ -243,7 +270,9 @@ function attachVoiceBlob(blob, seconds) {
   $('#gemini_voice_chip_dur').text(`${seconds}"`);
   $('#gemini_voice_chip').slideDown(180);
   $('#gemini_voice_mic_btn').addClass('attached');
-  toastr.success('🎙️ 语音已挂载！可试听或直接输入文字一起发送');
+  if (typeof toastr !== 'undefined') {
+    toastr.success('🎙️ 语音已挂载！点击 ▶ 可试听，点 ✕ 可删除');
+  }
 }
 
 // 丢弃删除语音附件
@@ -264,7 +293,9 @@ function discardVoiceAttachment() {
   $('#gemini_voice_chip_waves').removeClass('playing');
   $('#gemini_voice_chip').slideUp(150);
   $('#gemini_voice_mic_btn').removeClass('attached');
-  toastr.info('已移除语音附件');
+  if (typeof toastr !== 'undefined') {
+    toastr.info('已移除语音附件');
+  }
 }
 
 // 试听播放切换
@@ -284,21 +315,22 @@ function togglePreviewAudio() {
 // ==================== 拦截酒馆发送与 Gemini 多模态请求 ====================
 
 function hookSillyTavernSend($sendBtn, $textarea) {
-  // 点击发送按钮拦截
-  $sendBtn.on('click', async (e) => {
+  const doSend = async (e) => {
     if (attachedAudioBase64) {
       e.preventDefault();
       e.stopImmediatePropagation();
       await handleVoiceAndTextSend($textarea);
     }
-  });
+  };
 
-  // 键盘回车拦截
+  // 拦截发送键点击
+  if ($sendBtn.length) {
+    $sendBtn.on('click', doSend);
+  }
+  // 拦截全局回车
   $textarea.on('keydown', async (e) => {
     if (e.key === 'Enter' && !e.shiftKey && attachedAudioBase64) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      await handleVoiceAndTextSend($textarea);
+      await doSend(e);
     }
   });
 }
@@ -314,7 +346,9 @@ async function handleVoiceAndTextSend($textarea) {
   $textarea.val('').trigger('input');
   discardVoiceAttachment();
 
-  toastr.info('正在发送语音给 Gemini 分析语气与内容...');
+  if (typeof toastr !== 'undefined') {
+    toastr.info('正在发送语音给 Gemini 分析语气与内容...');
+  }
 
   try {
     const context = getSillyTavernContext();
@@ -355,11 +389,15 @@ async function handleVoiceAndTextSend($textarea) {
     // 2. 插入角色回复
     appendMessageToSillyTavern(charName, false, reply);
 
-    toastr.success(`Gemini 已感知语气并回复！[${tone}]`);
+    if (typeof toastr !== 'undefined') {
+      toastr.success(`Gemini 已感知语气并回复！[${tone}]`);
+    }
 
   } catch (err) {
     console.error('[GeminiVoice] 发送请求失败:', err);
-    toastr.error('发送失败：' + (err.message || '网络连接失败'));
+    if (typeof toastr !== 'undefined') {
+      toastr.error('发送失败：' + (err.message || '网络连接失败'));
+    }
   }
 }
 
@@ -538,6 +576,6 @@ function openConfigModal() {
     config.format = $('#gv_cfg_format').val();
     saveSettings(config);
     $('.gemini-voice-modal-backdrop').remove();
-    toastr.success('Gemini 语音配置已保存！');
+    if (typeof toastr !== 'undefined') toastr.success('Gemini 语音配置已保存！');
   });
 }
