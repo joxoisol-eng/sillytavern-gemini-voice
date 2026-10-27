@@ -6,6 +6,6 @@
   "js": "index.js",
   "css": "style.css",
   "author": "Custom",
-  "version": "2.0.0",
-  "description": "纯原生语音附件插件"
+  "version": "2.0.1",
+  "description": "纯原生语音附件插件 (音量放大 + 长对话稳定性修复)"
 }
