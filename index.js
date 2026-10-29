@@ -1,10 +1,10 @@
 /**
- * 语音插件 (v2.0.1 - 纯血原生附件流优化版)
+ * 语音插件 (v2.0.2 - 纯血原生附件流优化版)
  *
  * 本次更新关键优化：
- * 1. 修复多轮对话发送失效问题：精准查找消息队列中的真实用户消息，彻底解决长对话后深度提示词(Depth Prompt)/系统附言导致的音频漏注入。
+ * 1. 试听音量调至刚刚好的 2.0 倍增益 + 动态压缩防破音，听感舒适清晰不震耳。
  * 2. 彻底杜绝麦克风句柄泄漏：每次录音结束/取消时确保严密释放 Android 系统的硬件音频流，多轮使用永不卡死。
- * 3. 试听音量智能放大（3倍增益 + 动态防破音）：接入 Web Audio API GainNode，试听音量大幅提升，清晰饱满不刺耳。
+ * 3. 试听音量智能放大（2倍增益 + 动态防破音）：接入 Web Audio API GainNode，试听音量大幅提升，清晰饱满不刺耳。
  * 4. 优化 Base64 异步状态竞争，保证录音一结束即可立刻秒发。
  */
 
@@ -26,12 +26,12 @@ let isRecording = false;
 let recordTimer = null;
 let recordSeconds = 0;
 
-// Web Audio API 试听音量放大器 (3.0倍增益 + 动态压缩防破音)
+// Web Audio API 试听音量放大器 (2.0倍增益 + 动态压缩防破音)
 let audioCtx = null;
 let gainNode = null;
 let mediaSourceNode = null;
 
-function setupAudioGain(audioElement, multiplier = 3.0) {
+function setupAudioGain(audioElement, multiplier = 2.0) {
   try {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
@@ -184,9 +184,9 @@ function initVoiceUI($sendBtn, $textarea) {
     $('#gemini_voice_chip_waves').removeClass('playing');
   };
 
-  console.log('[VoicePlugin] 插件 v2.0.1 就绪！');
+  console.log('[VoicePlugin] 插件 v2.0.2 就绪！');
   if (typeof toastr !== 'undefined') {
-    toastr.success('🎙️ 语音插件 v2.0.1 已就绪！(已增强音量与长对话稳定性)');
+    toastr.success('🎙️ 语音插件 v2.0.2 已就绪！(试听2倍音量版)');
   }
 }
 
@@ -342,8 +342,8 @@ function discardVoiceAttachment() {
 function togglePreviewAudio() {
   if (!previewAudio.src) return;
 
-  // 激活 Web Audio API 3.0倍硬件音量放大
-  setupAudioGain(previewAudio, 3.0);
+  // 激活 Web Audio API 2.0倍硬件音量放大
+  setupAudioGain(previewAudio, 2.0);
 
   if (previewAudio.paused) {
     previewAudio.play().then(() => {
