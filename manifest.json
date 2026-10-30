@@ -6,6 +6,6 @@
   "js": "index.js",
   "css": "style.css",
   "author": "Custom",
-  "version": "2.0.2",
-  "description": "纯原生语音附件插件 (试听2倍音量优化版)"
+  "version": "2.0.3",
+  "description": "纯原生语音附件插件 (试听1.5倍舒适音量优化版)"
 }
